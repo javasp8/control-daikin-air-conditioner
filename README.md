@@ -18,8 +18,7 @@ ESP32を使用したダイキンエアコンの自動制御システムです。
 
 ### ブレッドボード配置（参考）
 
-![17770105-9143-4C84-A11C-43A7B0C8FE47_1_105_c](https://github.com/user-attachments/assets/6c0e22e0-113f-4012-82fe-5ec6db5d4032)
-
+![17770105-9143-4C84-A11C-43A7B0C8FE47_1_105_c](https://github.com/user-attachments/assets/7914fc3f-17a0-49dc-a1ab-6de446686b49)
 
 ### 必要な部品
 
