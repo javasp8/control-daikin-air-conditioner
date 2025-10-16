@@ -28,8 +28,8 @@ namespace HardwareConfig {
 
 // センサーオフセット
 namespace SensorConfig {
-  constexpr float TEMP_OFFSET = -2.0f;
-  constexpr float HUM_OFFSET = 0.0f;
+  constexpr float TEMP_OFFSET = -1.6f;
+  constexpr float HUM_OFFSET = -1.0f;
 }
 
 // WiFi設定
@@ -55,7 +55,7 @@ namespace DisplayConfig {
 // タイミング設定
 namespace TimingConfig {
   constexpr unsigned long SENSOR_READ_INTERVAL_MS = 2000;   // センサー読み取り間隔
-  constexpr unsigned long CONTROL_INTERVAL_MS = 60000;      // エアコン制御間隔
+  constexpr unsigned long CONTROL_INTERVAL_MS = 300000;      // エアコン制御間隔
   constexpr unsigned long STARTUP_DELAY_MS = 2000;          // 起動時の待機時間
 }
 
@@ -150,11 +150,12 @@ void loop() {
     // センサーデータ読み取り
     SensorData sensorData = sensor.read();
 
-    // ディスプレイ更新（天気予報付き）
+    // ディスプレイ更新（天気予報とエアコン状態付き）
     char formattedTime[20];  // "YYYY-MM-DD HH:MM" = 16文字 + null終端
     timeMgr.getFormattedTime(TimeManager::FORMAT_DATETIME, formattedTime, 20);
     WeatherData weatherData = weatherForecast.getData();
-    displayCtrl.showSensorDataWithWeather(sensorData, formattedTime, weatherData);
+    ACMode currentACMode = airConditioner.getCurrentMode();
+    displayCtrl.showSensorDataWithWeatherAndAC(sensorData, formattedTime, weatherData, currentACMode);
 
     // センサーエラー時は制御スキップ
     if (!sensorData.isValid) {

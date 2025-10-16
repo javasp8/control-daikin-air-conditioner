@@ -178,6 +178,110 @@ void DisplayController::showSensorDataWithWeather(const SensorData& data, const 
   display_.display();
 }
 
+void DisplayController::showSensorDataWithWeatherAndAC(const SensorData& data, const char* datetime, const WeatherData& weather, ACMode acMode) {
+  if (!data.isValid) {
+    showError("Sensor Error");
+    return;
+  }
+
+  display_.clearDisplay();
+
+  // 現在日時（最上部）
+  display_.setTextSize(1);
+  display_.setTextColor(SSD1306_WHITE);
+  display_.setCursor(0, 0);
+  display_.print(datetime);
+
+  // 区切り線
+  display_.drawLine(0, 10, width_, 10, SSD1306_WHITE);
+
+  // 温度表示（やや小さめに調整）
+  display_.setTextSize(1);
+  display_.setCursor(0, 14);
+  display_.println("Temp");
+
+  display_.setTextSize(2);
+  display_.setCursor(5, 24);
+  display_.print(data.temperature, 1);
+  display_.setTextSize(1);
+  display_.setCursor(55, 28);
+  display_.println("C");
+
+  // 湿度表示（やや小さめに調整）
+  display_.setTextSize(1);
+  display_.setCursor(70, 14);
+  display_.println("Hum");
+
+  display_.setTextSize(2);
+  display_.setCursor(70, 24);
+  display_.print(data.humidity, 0);
+  display_.setTextSize(1);
+  display_.setCursor(105, 28);
+  display_.println("%");
+
+  // 不快指数（DI）とエアコン状態表示（横並び）
+  display_.setTextSize(1);
+  display_.setCursor(0, 44);
+  display_.print("DI:");
+  display_.print(data.discomfortIndex, 1);
+
+  // DI値のステータス表示
+  display_.setCursor(48, 44);
+  if (data.discomfortIndex >= 77.0f) {
+    display_.print("(Hot)");
+  } else if (data.discomfortIndex >= 75.0f) {
+    display_.print("(Warm)");
+  } else if (data.discomfortIndex >= 70.0f) {
+    display_.print("(Comfy)");
+  } else {
+    display_.print("(Cool)");
+  }
+
+  // エアコン状態表示（右側に追加）
+  display_.setCursor(95, 44);
+  switch (acMode) {
+    case ACMode::OFF:
+      display_.print("Off");
+      break;
+    case ACMode::HEATING_23_5:
+      display_.print("H24");  // 暖房23.5度を省略表記
+      break;
+    case ACMode::HEATING_18:
+      display_.print("H18");  // 暖房18度
+      break;
+    case ACMode::COOLING_25:
+      display_.print("C25");  // 冷房25度
+      break;
+    case ACMode::DEHUMID_MINUS_1_5:
+      display_.print("D25");  // 除湿-1.5度（設定温度24.5度）
+      break;
+    default:
+      display_.print("---");
+      break;
+  }
+
+  // 天気予報表示（画面最下部に配置を最適化）
+  display_.setTextSize(1);
+  if (weather.isValid) {
+    // 天気文字列（左側）
+    display_.setCursor(0, 56);
+    display_.print(weather.weatherString);
+
+    // 最高・最低気温（右側）
+    display_.setCursor(60, 56);
+    display_.print(weather.tempMin, 1);
+    display_.print("/");
+    display_.print(weather.tempMax, 1);
+    display_.print("C");
+  } else {
+    display_.setCursor(0, 56);
+    display_.print("Weather: N/A");
+  }
+
+  // 表示実行
+  display_.display();
+}
+
 void DisplayController::showError(const char* message) {
   display_.clearDisplay();
   display_.setTextSize(2);

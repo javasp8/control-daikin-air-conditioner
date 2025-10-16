@@ -186,7 +186,7 @@ namespace TimeConfig {
 ```cpp
 namespace TimingConfig {
   constexpr unsigned long SENSOR_READ_INTERVAL_MS = 2000;   // センサー読取間隔
-  constexpr unsigned long CONTROL_INTERVAL_MS = 60000;      // エアコン制御間隔
+  constexpr unsigned long CONTROL_INTERVAL_MS = 300000;      // エアコン制御間隔
 }
 ```
 

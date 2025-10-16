@@ -6,6 +6,7 @@
 #include <Adafruit_SSD1306.h>
 #include "EnvironmentSensor.h"
 #include "WeatherForecast.h"
+#include "AirConditionerController.h"
 
 // ディスプレイコントローラークラス
 class DisplayController {
@@ -23,6 +24,9 @@ public:
 
   // センサーデータと天気予報を表示
   void showSensorDataWithWeather(const SensorData& data, const char* datetime, const WeatherData& weather);
+
+  // センサーデータと天気予報とエアコン状態を表示
+  void showSensorDataWithWeatherAndAC(const SensorData& data, const char* datetime, const WeatherData& weather, ACMode acMode);
 
   // エラー画面を表示
   void showError(const char* message);

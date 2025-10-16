@@ -16,14 +16,14 @@
 // 温度・湿度の閾値設定
 namespace Threshold {
   // 温度範囲
-  constexpr float TEMP_LOWER = 24.5f;   // 目標室温下限
+  constexpr float TEMP_LOWER = 24.2f;   // 目標室温下限
   constexpr float TEMP_UPPER = 26.5f;   // 目標室温上限
 
   // 湿度範囲
   constexpr float HUMIDITY_LOWER = 40.0f;   // 目標湿度下限
-  constexpr float HUMIDITY_UPPER = 60.0f;   // 目標湿度上限
-  constexpr float HUMIDITY_HIGH = 61.0f;    // 高湿度の閾値
-  constexpr float HUMIDITY_VERY_HIGH = 71.0f; // 非常に高湿度の閾値
+  constexpr float HUMIDITY_UPPER = 62.0f;   // 目標湿度上限
+  constexpr float HUMIDITY_HIGH = 65.0f;    // 高湿度の閾値
+  constexpr float HUMIDITY_VERY_HIGH = 70.0f; // 非常に高湿度の閾値
 }
 
 /**
