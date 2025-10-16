@@ -181,16 +181,9 @@ ACMode AirConditionerController::determineSpringMode(float temperature, float hu
     Serial.printf("[AC] 春季・日中: 室温%.1f℃ < %.1f℃ → 暖房23.5度\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::HEATING_23_5;
   } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
-    // 24.5〜26.5度の範囲内
-    if (humidity >= Threshold::HUMIDITY_LOWER && humidity <= Threshold::HUMIDITY_UPPER) {
-      // 湿度も快適範囲内 → 停止
-      Serial.printf("[AC] 春季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
-      return ACMode::OFF;
-    } else if (humidity > Threshold::HUMIDITY_UPPER) {
-      // 湿度61%以上 → 除湿
-      Serial.printf("[AC] 春季・日中: 湿度%.1f%% > %.1f%% → 除湿-1.5度\n", humidity, Threshold::HUMIDITY_UPPER);
-      return ACMode::DEHUMID_MINUS_1_5;
-    }
+    // 24.5〜26.5度の範囲内 → 停止（春季は除湿を行わない）
+    Serial.printf("[AC] 春季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
+    return ACMode::OFF;
   } else {
     // 26.5度超 → 冷房25度
     Serial.printf("[AC] 春季・日中: 室温%.1f℃ > %.1f℃ → 冷房25度\n", temperature, Threshold::TEMP_UPPER);
@@ -243,13 +236,9 @@ ACMode AirConditionerController::determineAutumnMode(float temperature, float hu
     Serial.printf("[AC] 秋季・日中: 室温%.1f℃ < %.1f℃ → 暖房23.5度\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::HEATING_23_5;
   } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
-    if (humidity >= Threshold::HUMIDITY_LOWER && humidity <= Threshold::HUMIDITY_UPPER) {
-      Serial.printf("[AC] 秋季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
-      return ACMode::OFF;
-    } else if (humidity > Threshold::HUMIDITY_UPPER) {
-      Serial.printf("[AC] 秋季・日中: 湿度%.1f%% > %.1f%% → 除湿-1.5度\n", humidity, Threshold::HUMIDITY_UPPER);
-      return ACMode::DEHUMID_MINUS_1_5;
-    }
+    // 24.5〜26.5度の範囲内 → 停止（秋季は除湿を行わない）
+    Serial.printf("[AC] 秋季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
+    return ACMode::OFF;
   } else {
     Serial.printf("[AC] 秋季・日中: 室温%.1f℃ > %.1f℃ → 冷房25度\n", temperature, Threshold::TEMP_UPPER);
     return ACMode::COOLING_25;
