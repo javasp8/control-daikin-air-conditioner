@@ -19,6 +19,11 @@ namespace Threshold {
   constexpr float TEMP_LOWER = 24.2f;   // 目標室温下限
   constexpr float TEMP_UPPER = 26.5f;   // 目標室温上限
 
+  // ヒステリシス（不感帯）設定
+  constexpr float TEMP_HYSTERESIS = 0.3f;   // 温度ヒステリシス幅（℃）
+  constexpr float TEMP_LOWER_OFF = TEMP_LOWER + TEMP_HYSTERESIS;  // 暖房停止温度: 24.5℃
+  constexpr float TEMP_UPPER_OFF = TEMP_UPPER - TEMP_HYSTERESIS;  // 冷房停止温度: 26.2℃
+
   // 湿度範囲
   constexpr float HUMIDITY_LOWER = 40.0f;   // 目標湿度下限
   constexpr float HUMIDITY_UPPER = 62.0f;   // 目標湿度上限
@@ -175,47 +180,73 @@ ACMode AirConditionerController::determineSpringMode(float temperature, float hu
     return ACMode::OFF;
   }
 
-  // 日中の制御
+  // 日中の制御（ヒステリシス付き）
   if (temperature < Threshold::TEMP_LOWER) {
-    // 24.5度未満 → 暖房23.5度
+    // 24.2度未満 → 暖房23.5度
     Serial.printf("[AC] 春季・日中: 室温%.1f℃ < %.1f℃ → 暖房23.5度\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::HEATING_23_5;
-  } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
-    // 24.5〜26.5度の範囲内 → 停止（春季は除湿を行わない）
-    Serial.printf("[AC] 春季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
-    return ACMode::OFF;
-  } else {
+  } else if (currentMode_ == ACMode::HEATING_23_5 && temperature < Threshold::TEMP_LOWER_OFF) {
+    // 暖房中で24.5度未満 → 暖房継続（ヒステリシス）
+    Serial.printf("[AC] 春季・日中: 暖房中（室温%.1f℃ < %.1f℃）→ 暖房継続\n", temperature, Threshold::TEMP_LOWER_OFF);
+    return ACMode::HEATING_23_5;
+  } else if (temperature > Threshold::TEMP_UPPER) {
     // 26.5度超 → 冷房25度
     Serial.printf("[AC] 春季・日中: 室温%.1f℃ > %.1f℃ → 冷房25度\n", temperature, Threshold::TEMP_UPPER);
     return ACMode::COOLING_25;
+  } else if (currentMode_ == ACMode::COOLING_25 && temperature > Threshold::TEMP_UPPER_OFF) {
+    // 冷房中で26.2度超 → 冷房継続（ヒステリシス）
+    Serial.printf("[AC] 春季・日中: 冷房中（室温%.1f℃ > %.1f℃）→ 冷房継続\n", temperature, Threshold::TEMP_UPPER_OFF);
+    return ACMode::COOLING_25;
+  } else {
+    // 快適範囲内 → 停止（春季は除湿を行わない）
+    Serial.printf("[AC] 春季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
+    return ACMode::OFF;
   }
-
-  return ACMode::OFF;
 }
 
 /**
  * 夏季（6〜9月）の制御ロジック（24時間運転）
  */
 ACMode AirConditionerController::determineSummerMode(float temperature, float humidity) {
+  // 過冷房防止（24.2度未満で停止）
   if (temperature < Threshold::TEMP_LOWER) {
-    // 24.5度未満 → 過冷房防止のため停止
     Serial.printf("[AC] 夏季: 室温%.1f℃ < %.1f℃ → 過冷房防止のため停止\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::OFF;
-  } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
-    // 24.5〜26.5度の範囲内
-    if (humidity >= Threshold::HUMIDITY_LOWER && humidity <= Threshold::HUMIDITY_UPPER) {
-      // 湿度も快適範囲内 → 停止
-      Serial.printf("[AC] 夏季: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
-      return ACMode::OFF;
-    } else if (humidity > Threshold::HUMIDITY_UPPER) {
-      // 湿度61%以上 → 除湿
-      Serial.printf("[AC] 夏季: 湿度%.1f%% > %.1f%% → 除湿-1.5度\n", humidity, Threshold::HUMIDITY_UPPER);
+  }
+
+  // 冷房運転中のヒステリシス判定
+  if (currentMode_ == ACMode::COOLING_25 && temperature > Threshold::TEMP_UPPER_OFF) {
+    // 冷房中で26.2度超 → 冷房継続（ヒステリシス）
+    Serial.printf("[AC] 夏季: 冷房中（室温%.1f℃ > %.1f℃）→ 冷房継続\n", temperature, Threshold::TEMP_UPPER_OFF);
+    return ACMode::COOLING_25;
+  }
+
+  // 除湿運転中のヒステリシス判定
+  if (currentMode_ == ACMode::DEHUMID_MINUS_1_5) {
+    if (temperature > Threshold::TEMP_UPPER_OFF && humidity > Threshold::HUMIDITY_UPPER) {
+      // 除湿中で条件継続 → 除湿継続（ヒステリシス）
+      Serial.printf("[AC] 夏季: 除湿中（室温%.1f℃ > %.1f℃, 湿度%.1f%% > %.1f%%）→ 除湿継続\n",
+                    temperature, Threshold::TEMP_UPPER_OFF, humidity, Threshold::HUMIDITY_UPPER);
       return ACMode::DEHUMID_MINUS_1_5;
     }
-  } else {
+  }
+
+  // 新規起動判定
+  if (temperature > Threshold::TEMP_UPPER) {
     // 26.5度超 → 冷房25度
     Serial.printf("[AC] 夏季: 室温%.1f℃ > %.1f℃ → 冷房25度\n", temperature, Threshold::TEMP_UPPER);
     return ACMode::COOLING_25;
+  } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
+    // 快適温度範囲内
+    if (humidity > Threshold::HUMIDITY_UPPER) {
+      // 湿度62%超 → 除湿
+      Serial.printf("[AC] 夏季: 湿度%.1f%% > %.1f%% → 除湿-1.5度\n", humidity, Threshold::HUMIDITY_UPPER);
+      return ACMode::DEHUMID_MINUS_1_5;
+    } else {
+      // 湿度も快適範囲内 → 停止
+      Serial.printf("[AC] 夏季: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
+      return ACMode::OFF;
+    }
   }
 
   return ACMode::OFF;
@@ -231,20 +262,28 @@ ACMode AirConditionerController::determineAutumnMode(float temperature, float hu
     return ACMode::OFF;
   }
 
-  // 日中の制御（春季と同じロジック）
+  // 日中の制御（春季と同じロジック、ヒステリシス付き）
   if (temperature < Threshold::TEMP_LOWER) {
+    // 24.2度未満 → 暖房23.5度
     Serial.printf("[AC] 秋季・日中: 室温%.1f℃ < %.1f℃ → 暖房23.5度\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::HEATING_23_5;
-  } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
-    // 24.5〜26.5度の範囲内 → 停止（秋季は除湿を行わない）
-    Serial.printf("[AC] 秋季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
-    return ACMode::OFF;
-  } else {
+  } else if (currentMode_ == ACMode::HEATING_23_5 && temperature < Threshold::TEMP_LOWER_OFF) {
+    // 暖房中で24.5度未満 → 暖房継続（ヒステリシス）
+    Serial.printf("[AC] 秋季・日中: 暖房中（室温%.1f℃ < %.1f℃）→ 暖房継続\n", temperature, Threshold::TEMP_LOWER_OFF);
+    return ACMode::HEATING_23_5;
+  } else if (temperature > Threshold::TEMP_UPPER) {
+    // 26.5度超 → 冷房25度
     Serial.printf("[AC] 秋季・日中: 室温%.1f℃ > %.1f℃ → 冷房25度\n", temperature, Threshold::TEMP_UPPER);
     return ACMode::COOLING_25;
+  } else if (currentMode_ == ACMode::COOLING_25 && temperature > Threshold::TEMP_UPPER_OFF) {
+    // 冷房中で26.2度超 → 冷房継続（ヒステリシス）
+    Serial.printf("[AC] 秋季・日中: 冷房中（室温%.1f℃ > %.1f℃）→ 冷房継続\n", temperature, Threshold::TEMP_UPPER_OFF);
+    return ACMode::COOLING_25;
+  } else {
+    // 快適範囲内 → 停止（秋季は除湿を行わない）
+    Serial.printf("[AC] 秋季・日中: 快適範囲内（温度%.1f℃, 湿度%.1f%%）→ 停止\n", temperature, humidity);
+    return ACMode::OFF;
   }
-
-  return ACMode::OFF;
 }
 
 /**
@@ -264,12 +303,16 @@ ACMode AirConditionerController::determineWinterMode(float temperature, float hu
     return ACMode::OFF;
   }
 
-  // 日中の制御
+  // 日中の制御（ヒステリシス付き）
   if (temperature < Threshold::TEMP_LOWER) {
-    // 24.5度未満 → 暖房23.5度
+    // 24.2度未満 → 暖房23.5度
     Serial.printf("[AC] 冬季・日中: 室温%.1f℃ < %.1f℃ → 暖房23.5度\n", temperature, Threshold::TEMP_LOWER);
     return ACMode::HEATING_23_5;
-  } else if (temperature >= Threshold::TEMP_LOWER && temperature <= Threshold::TEMP_UPPER) {
+  } else if (currentMode_ == ACMode::HEATING_23_5 && temperature < Threshold::TEMP_LOWER_OFF) {
+    // 暖房中で24.5度未満 → 暖房継続（ヒステリシス）
+    Serial.printf("[AC] 冬季・日中: 暖房中（室温%.1f℃ < %.1f℃）→ 暖房継続\n", temperature, Threshold::TEMP_LOWER_OFF);
+    return ACMode::HEATING_23_5;
+  } else if (temperature >= Threshold::TEMP_LOWER_OFF && temperature <= Threshold::TEMP_UPPER) {
     // 快適範囲内 → 停止
     Serial.printf("[AC] 冬季・日中: 快適範囲内（温度%.1f℃）→ 停止\n", temperature);
     return ACMode::OFF;
